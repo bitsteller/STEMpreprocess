@@ -66,7 +66,7 @@ if __name__ == '__main__':
 	mcur = mconn.cursor()
 
 	print("Creating antenna table...")
-	mcur.execute(open("SQL/01_Loading/create_ant_pos.sql", 'r').read())
+	mcur.execute(open("SQL/create_ant_pos.sql", 'r').read())
 	mconn.commit()
 
 	#Read antennas from file

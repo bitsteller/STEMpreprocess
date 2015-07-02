@@ -40,16 +40,15 @@ def parse_trip(linestr):
 	try:
 		data = re.match(r"([0-9]+),([01]),([0-9.]+),([0-9.]+),([0-9 ]*)",linestr).groups()
 		userid, commute_direction, orig_TAZ, dest_TAZ, cellpathstr = data
-		if int(commute_direction) == 1 or len(cellpathstr) == 0:
-			return None #ignore trips for afternoon commute or with empty cellpaths
+		userid, commute_direction, orig_TAZ, dest_TAZ = int(userid), int(commute_direction), int(round(float(orig_TAZ))), round(int(float(dest_TAZ)))
 		try:
 			cellpath = [int(cell) for cell in cellpathstr.strip(" ").split(" ")]
-			return (userid, cellpath)
+			return (userid, commute_direction, orig_TAZ, dest_TAZ, cellpath)
 		except Exception, e:
-			print("Line '" + linestr + "' could will be ignored, because '" + cellpathstr + "' is not a valid cellpath")
+			print("Line '" + linestr + "' will be ignored, because '" + cellpathstr + "' is not a valid cellpath")
 			return None
 	except Exception, e:
-		print("Line '" + linestr + "' has an invalid syntax and will be ignored.")
+		print("Line '" + linestr + "' has an invalid syntax and will be ignored: " + e.message)
 		return None
 
 def parse_taz(feature):

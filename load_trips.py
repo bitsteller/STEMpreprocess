@@ -22,25 +22,26 @@ def read_trip(args):
 
 	t = util.parse_trip(line)
 	if not t == None:
-		user_id, cellpath = t 
-		return [(user_id, cellpath)]
+		agentid, commute_direction, orig_TAZ, dest_TAZ, cellpath = t 
+		return [((agentid, commute_direction), (orig_TAZ, dest_TAZ, cellpath))]
 	else:
 		return []
 
 def upload_trip(args):
 	"""Uploads an antenna position to the database.
 	Args:
-		args: a tuple ((user_id, cellpath), values), where values is a list that is ignored and the other variables 
-		are the attributes of the trip
+		args: a tuple ((agentid, commute_direction), (orig_TAZ, dest_TAZ, cellpath))
 	"""
 	global conn, cur
 
-	user_id, cellpathlist = args
-	cellpath = cellpathlist[0]
+	key, value = args
+	agentid, commute_direction = key
+	orig_TAZ, dest_TAZ, cellpath = value[0]
+	assert len(value) == 1
 
-	sql = "	INSERT INTO trips (user_id, start_antenna, end_antenna, cellpath) \
-			VALUES (%s, %s, %s, %s);"
-	cur.execute(sql, (user_id, cellpath[0], cellpath[-1], cellpath))
+	sql = "	INSERT INTO trips (agent_id, commute_direction, orig_TAZ, dest_TAZ, cellpath) \
+			VALUES (%s, %s, %s, %s, %s);"
+	cur.execute(sql, (agentid, commute_direction, orig_TAZ, dest_TAZ, cellpath))
 	conn.commit()
 
 	return None
@@ -63,7 +64,7 @@ if __name__ == '__main__':
 	mcur = mconn.cursor()
 
 	print("Creating trips table...")
-	mcur.execute(open("SQL/01_Loading/create_trips.sql", 'r').read())
+	mcur.execute(open("SQL/create_trips.sql", 'r').read())
 	mconn.commit()
 
 	#Read trips from file
