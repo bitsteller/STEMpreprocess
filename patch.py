@@ -37,12 +37,12 @@ def patch(agent_id, snap = False):
 
 	 	route = calculate_route([centroids[cellid] for cellid in cellpath])
 	 	if route != None:
-	 		sql = "	INSERT INTO trips_patched(agent_id, commute_direction, orig_TAZ, dest_TAZ, cellpath) \
+	 		sql = "	INSERT INTO trips_patched(agent_id, commute_direction, orig_TAZ, dest_TAZ, cellpath, geom) \
 					WITH route AS (SELECT ST_SetSRID(ST_MakeLine(ST_GeomFromText(%(linestr)s)),4326) AS geom) \
 					SELECT %(agent_id)s, %(commute_direction)s, %(orig_TAZ)s, %(dest_TAZ)s, \
-							(SELECT array_agg(id) FROM voronoi WHERE ST_Intersects(voronoi.geom, route.geom)) AS cellpath \
+							(SELECT array_agg(id) FROM voronoi WHERE ST_Intersects(voronoi.geom, route.geom)) AS cellpath, geom \
 					FROM route;"
-			cur.execute(sql, {"agent_id": agent_id, "commute_direction": commute_direction, "orig_TAZ": orig_TAZ, "dest_TAZ": dest_TAZ, "cellpath": cellpath, "linestr": util.to_pglinestring(route)})
+			cur.execute(sql, {"agent_id": agent_id, "commute_direction": commute_direction, "orig_TAZ": orig_TAZ, "dest_TAZ": dest_TAZ, "linestr": util.to_pglinestring(route)})
 		else: #keep unpatched path
 			pass
 			#if not snap: #try with snapping
