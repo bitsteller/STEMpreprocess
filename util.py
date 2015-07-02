@@ -410,28 +410,15 @@ if not hasattr(config, "CELLS"):
 		pass
 
 
-#make sure config.TRIPS exsits
-if not hasattr(config, "TRIPS"):
+#make sure config.AGENTS exsits
+if not hasattr(config, "AGENTS"):
 	try:
 		db_login()
 		conn = db_connect()
 		cur = conn.cursor()
-		cur.execute("SELECT MIN(id) AS min, MAX(id) AS max FROM trips_original")
-		mintrip, maxtrip = cur.fetchone()
-		config.TRIPS = xrange(mintrip, maxtrip+1)
+		cur.execute("SELECT MIN(agent_id) AS min, MAX(agent_id) AS max FROM trips")
+		minagent, maxagent = cur.fetchone()
+		config.AGENTS = xrange(minagent, maxagent+1)
 		conn.close()
 	except Exception, e:
 		pass
-
-#make sure config.TRIPS exsits
-if not hasattr(config, "INTERVALS"):
-	try:
-		db_login()
-		conn = db_connect()
-		cur = conn.cursor()
-		cur.execute("SELECT array_agg(DISTINCT interval) FROM taz_od")
-		config.INTERVALS = cur.fetchone()[0]
-		conn.close()
-	except Exception, e:
-		pass
-

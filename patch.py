@@ -10,61 +10,54 @@ def init():
 	conn = util.db_connect()
 	cur = conn.cursor()
 
-def patch(tripid):
+def patch(agent_id):
 	"""Patches the given trip by adding intermediate cells to the cellpath. Processing is done directly in the database.
 	Args:
 		tripid: the id of the trip to patch"""
-	global conn, cur
+	global conn, cur, commute_direction
 
-	#fetch 
+	#fetch trip
+	cur.execute("SELECT agent_id, commute_direction, orig_TAZ, dest_TAZ, cellpath FROM trips WHERE agent_id = %s AND commute_direction = %s", (agent_id,commute_direction))
+	try:
+		agent_id, commute_direction, orig_TAZ, dest_TAZ, cellpath = cur.fetchone()
+	except Exception, e:
+		return #no trip found, skip
 
+	#fetch centroids
+	if len(cellpath) >= 2: #patching needs at least 2 cells in cellpath
+		cur.execute("SELECT id, ST_X(ST_Centroid(voronoi.geom)) AS lon, ST_Y(ST_Centroid(voronoi.geom)) AS lat FROM voronoi WHERE id = ANY(%s)", (cellpath,))
+		centroids = {}
 
- 	a,b,c = segment
-	y = None #when no start or endpoint, no border points or no routes were found, null value will be added to the database
+		for cellid, lon, lat in cur:
+			centroids[cellid] = (lat, lon)
 
-	#find start and end nodes
-	sql = "	SELECT xid, ST_Y(x.geom) AS xlat, ST_X(x.geom) AS xlon, zid, ST_Y(z.geom) AS zlat, ST_X(z.geom) AS zlon\
-			FROM closest_junction(%s, %s) AS xid, closest_junction(%s, %s) AS zid, hh_2po_4pgr_vertices AS x, hh_2po_4pgr_vertices AS z\
-			WHERE x.id = xid AND z.id = zid"
-	cur.execute(sql, (c,a,a,c))
-
-	if cur.rowcount > 0: #start and end point found
-		x, xlat, xlon, z, zlat, zlon = cur.fetchone()
-
-		#fetch waypoint candidates
-		sql = "	SELECT junction_id AS yid, ST_Y(y.geom) AS ylat, ST_X(y.geom) AS ylon\
-				FROM boundary_junctions, hh_2po_4pgr_vertices AS y\
-				WHERE antenna_id = %s AND y.id = boundary_junctions.junction_id"
-		cur.execute(sql, (b,))
-		y_candidates = cur.fetchall()
-
-		#calculate route cost for all waypoints
-		costs = []
-		for y, ylat, ylon in y_candidates:
-			costs.append(route_cost(xlat, xlon, ylat, ylon, zlat, zlon))
-			#To see route, export gpx file:	print("\n".join(urllib2.urlopen('http://www.server.com:5000/viaroute?output=gpx&loc=' + str(xlat) + ',' + str(xlon) + '&loc=' + str(ylat) + ',' + str(ylon) + '&loc=' + str(zlat) + ',' + str(zlon)).readlines()))
-
-		#select cheapest waypoint
-		if len(costs) > 0 and min(costs) < float("inf"): #at least one feasible route found
-			y = y_candidates[costs.index(min(costs))][0]
-
-	sql = "	INSERT INTO test_routes (start_point, end_point, geom) \
+	 	route = calculate_route([centroids[cellid] for cellid in cellpath])
+	 	if route != None:
+	 		sql = "	INSERT INTO trips_patched(agent_id, commute_direction, orig_TAZ, dest_TAZ, cellpath) \
 					WITH route AS (SELECT ST_SetSRID(ST_MakeLine(ST_GeomFromText(%(linestr)s)),4326) AS geom) \
-					SELECT ST_StartPoint(route.geom), ST_EndPoint(route.geom), route.geom FROM route;"
-			cur.execute(sql, {"linestr": util.to_pglinestring(route)})
-			conn.commit()
+					SELECT %(agent_id)s, %(commute_direction)s, %(orig_TAZ)s, %(dest_TAZ)s, \
+							SELECT array_agg(id) FROM voronoi WHERE ST_Intersects(voronoi.geom, route.geom);"
+			cur.execute(sql, {"agent_id": agent_id, "commute_direction": commute_direction, "orig_TAZ": orig_TAZ, "dest_TAZ": dest_TAZ, "cellpath": cellpath, "linestr": util.to_pglinestring(route)})
+		else: #keep unpatched path
+			print("WARNING: " + str(agent_id) + "," + str(commute_direction) + " could not be patched: no route found")
+			sql = "INSERT INTO trips_patched(agent_id, commute_direction, orig_TAZ, dest_TAZ, cellpath) SELECT %s, %s, %s, %s, %s"
+			cur.execute(sql, (agent_id, commute_direction, orig_TAZ, dest_TAZ, cellpath))	
+	else: #keep unpatched path
+		print("WARNING: " + str(agent_id) + "," + str(commute_direction) + " could not be patched: too few cells")
+		sql = "INSERT INTO trips_patched(agent_id, commute_direction, orig_TAZ, dest_TAZ, cellpath) SELECT %s, %s, %s, %s, %s"
+		cur.execute(sql, (agent_id, commute_direction, orig_TAZ, dest_TAZ, cellpath))
 
-def calculate_route(xlat, xlon, ylat, ylon):
+	cur.commit()
+
+def calculate_route(loclist):
 	"""Calculates the cost from x via y to z; OSRM backend needs to listen at port 5000
 	Args:
-		xlat: latitude of the start point
-		xlon: longitude of the start point
-		ylat: latitude of the via point
-		ylon: longitude of the via point
+		loclist: list of (lat, lon) pairs to visit (at least 2)
 	Returns:
 		A lists of (lat, lon) tuples describing the geometry of the routes"""
 
-	data = json.load(urllib2.urlopen('http://www.server.com:5000/viaroute?loc=' + str(xlat) + ',' + str(xlon) + '&loc=' + str(ylat) + ',' + str(ylon)))
+	parameters = "&".join([str(lat) + "," + str(lon) for lat, lon in loclist])
+	data = json.load(urllib2.urlopen('http://www.server.com:5000/viaroute?' + parameters))
 	results = []
 	if "route_geometry" in data:
 		return [(lat/10.0, lon/10.0) for lat, lon in PolylineCodec().decode(data["route_geometry"])]
@@ -82,6 +75,7 @@ mapper = None
 request_stop = False
 cur = None
 conn = None
+commute_direction = None
 
 if __name__ == '__main__':
 	signal.signal(signal.SIGINT, signal_handler) #abort on CTRL-C
@@ -89,13 +83,18 @@ if __name__ == '__main__':
 	mconn = util.db_connect()
 	mcur = mconn.cursor()
 
-	extract_segments()
-
 	print("Creating trips_patched table...")
-	#mcur.execute(open("SQL/04_Routing_Network_Loading/create_waypoints.sql", 'r').read())
+	mcur.execute(open("SQL/create_trips_patched.sql", 'r').read())
 	mconn.commit()
 
-	print("Patching trajectories...")
+	print("Patching trajectories (commute_direction=0)...")
 	mapper = util.ParMap(patch, initializer = init)
-	mapper(config.TRIPS)
+	commute_direction = 0
+	mapper(config.AGENTS)
+
+
+	print("Patching trajectories (commute_direction=1)...")
+	mapper = util.ParMap(patch, initializer = init)
+	commute_direction = 1
+	mapper(config.AGENTS)
 
