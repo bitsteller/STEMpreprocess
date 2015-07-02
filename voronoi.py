@@ -7,10 +7,10 @@ conn = util.db_connect()
 cur = conn.cursor()
 
 print("Creating Voronoi table...")
-cur.execute(open("SQL/01_Loading/create_voronoi.sql", 'r').read())
+cur.execute(open("SQL/create_voronoi.sql", 'r').read())
 
 print("Creating voronoi() function...")
-cur.execute(open("SQL/01_Loading/create_voronoi_func.sql", 'r').read())
+cur.execute(open("SQL/create_voronoi_func.sql", 'r').read())
 conn.commit()
 
 print("Calculating Voronoi partition...")
