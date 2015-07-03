@@ -27,7 +27,7 @@ if __name__ == '__main__':
 			est = datetime.datetime.now() + datetime.timedelta(seconds = (time.time()-start)/i*(count-i))
 			sys.stderr.write('\rdone {0:%}'.format(float(i)/count) + "  ETA " + est.strftime("%Y-%m-%d %H:%M"))
 		
-		f.write("{},{},{:.1f},{:.1f},{}".format(agent_id, commute_direction, orig_taz, dest_taz, " ".join(cellpath)))
+		f.write("{0},{1},{2:.1f},{3:.1f},{4}".format(agent_id, commute_direction, orig_taz, dest_taz, " ".join(cellpath)))
 
 	f.close()
 	mconn.close()
