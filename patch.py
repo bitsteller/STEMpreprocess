@@ -83,7 +83,7 @@ def calculate_route(loclist, attempts = 3):
 		return [(lat/10.0, lon/10.0) for lat, lon in PolylineCodec().decode(data["route_geometry"])]
 	return None
 
-def locate(location, attempts = 3):
+def locate(location, attempts = 10):
 	"""returns coordinate snapped to nearest node; OSRM backend needs to listen at port 5000
 	Args:
 		location: a tuple (lat, lon) to snap to the map
@@ -98,7 +98,7 @@ def locate(location, attempts = 3):
 	except Exception, e:
 		print("WARNING: " + e.message)
 		if attempts > 0:
-			time.sleep(5)
+			time.sleep(10*60/attemps)
 			return locate(location, attempts = attempts - 1)
 		else:
 			raise e
