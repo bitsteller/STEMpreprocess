@@ -132,13 +132,18 @@ if __name__ == '__main__':
 	mcur.execute(open("SQL/create_trips_patched.sql", 'r').read())
 	mconn.commit()
 
-	print("Patching trajectories (commute_direction=0)...")
-	commute_direction = 0
-	mapper = util.ParMap(patch, initializer = init)
-	mapper(config.AGENTS, chunksize = 100)
+	for d in [0,1]:
+		commute_direction = d
+		print("Patching trajectories (commute_direction=" + str(commute_direction) + ")...")
+		sql = "SELECT COUNT(*) FROM trips WHERE NOT EXISTS(SELECT * FROM trips_patched WHERE trips.agent_id = trips_patched.agent_id AND commute_direction = %s)"
+		mcur.execute(sql, (commute_direction,))
+		count = mcur.fetchone()[0]
 
-	print("Patching trajectories (commute_direction=1)...")
-	#commute_direction = 1
-	#mapper = util.ParMap(patch, initializer = init)
-	#mapper(config.AGENTS)
+		sql = "SELECT DISTINCT agent_id FROM trips WHERE NOT EXISTS(SELECT * FROM trips_patched WHERE trips.agent_id = trips_patched.agent_id AND commute_direction = %s)"
+		mcur.execute(sql, (commute_direction,))
+
+		agents = (agent_id for (agent_id,) in mcur)
+		
+		mapper = util.ParMap(patch, initializer = init)
+		mapper(agents, chunksize = 100, length = count)
 
