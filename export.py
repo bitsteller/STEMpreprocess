@@ -1,4 +1,4 @@
-import time, os.path
+import time, os.path, datetime, sys
 import psycopg2 #for postgres DB access
 
 import util, config #local modules
@@ -26,8 +26,8 @@ if __name__ == '__main__':
 		if i % 10000 == 1:
 			est = datetime.datetime.now() + datetime.timedelta(seconds = (time.time()-start)/i*(count-i))
 			sys.stderr.write('\rdone {0:%}'.format(float(i)/count) + "  ETA " + est.strftime("%Y-%m-%d %H:%M"))
-		
-		f.write("{0},{1},{2:.1f},{3:.1f},{4}".format(agent_id, commute_direction, orig_taz, dest_taz, " ".join(cellpath)))
+		if cellpath != None:
+			f.write("{0},{1},{2:.1f},{3:.1f},{4}".format(agent_id, commute_direction, orig_taz, dest_taz, " ".join(map(str, cellpath))))
 
 	f.close()
 	mconn.close()
