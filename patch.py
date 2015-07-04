@@ -132,15 +132,15 @@ if __name__ == '__main__':
 	mcur.execute(open("SQL/create_trips_patched.sql", 'r').read())
 	mconn.commit()
 
-	for d in [0,1]:
+	for d in [0]:
 		commute_direction = d
 		print("Patching trajectories (commute_direction=" + str(commute_direction) + ")...")
-		sql = "SELECT COUNT(*) FROM trips WHERE NOT EXISTS(SELECT * FROM trips_patched WHERE trips.agent_id = trips_patched.agent_id AND commute_direction = %s)"
-		mcur.execute(sql, (commute_direction,))
+		sql = "SELECT COUNT(*) FROM trips WHERE trips.commute_direction = %s AND NOT EXISTS(SELECT * FROM trips_patched WHERE trips.agent_id = trips_patched.agent_id AND commute_direction = %s)"
+		mcur.execute(sql, (commute_direction,commute_direction))
 		count = mcur.fetchone()[0]
 
-		sql = "SELECT DISTINCT agent_id FROM trips WHERE NOT EXISTS(SELECT * FROM trips_patched WHERE trips.agent_id = trips_patched.agent_id AND commute_direction = %s)"
-		mcur.execute(sql, (commute_direction,))
+		sql = "SELECT DISTINCT agent_id FROM trips WHERE trips.commute_direction = %s AND NOT EXISTS(SELECT * FROM trips_patched WHERE trips.agent_id = trips_patched.agent_id AND commute_direction = %s)"
+		mcur.execute(sql, (commute_direction,commute_direction))
 
 		agents = (agent_id for (agent_id,) in mcur)
 		
